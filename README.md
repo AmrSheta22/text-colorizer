@@ -1,5 +1,6 @@
 # text-colorizer
  A tool that takes a set of text files as input and highlights each sentence (using HTML tags), such that the more two sentences are similar, the more their highlight colors are also similar.
+ <br>
  ![image](https://github.com/AmrSheta22/text-colorizer/blob/main/static/assets/logo.png)
  <br>
  This code can take docx and pdf files also and can use input text as well. 
