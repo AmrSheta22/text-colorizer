@@ -17,8 +17,6 @@ def split_into_sentences(text):
     sentences = [s.strip() for s in sentences if s.strip()]
     return sentences
 
-
-
 def compute_sentence_embeddings(sentences):
     return model.encode(sentences)
 
@@ -26,6 +24,15 @@ def compute_cosine_distance_matrix(embeddings):
     return squareform(pdist(embeddings, 'cosine'))
 
 def reduce_to_one_dimension(distance_matrix):
+    """
+    Reduces a distance matrix to one dimension using Multidimensional Scaling (MDS).
+
+    Parameters:
+    distance_matrix (numpy.ndarray): The input distance matrix.
+
+    Returns:
+    numpy.ndarray: A one-dimensional representation of the input distance matrix.
+    """
     mds = MDS(n_components=1, dissimilarity='precomputed', random_state=42)
     one_dimensional = mds.fit_transform(distance_matrix).flatten()
     return one_dimensional
@@ -36,6 +43,23 @@ def normalize_array(array):
     return (array - min_val) / (max_val - min_val)
 
 def get_color(value):
+    """
+    Given a value between 0 and 1, this function returns an RGB color value that transitions
+    smoothly between red, yellow, green, cyan, and blue. The value parameter determines the 
+    position of the color in the transition. The color is calculated by interpolating between 
+    the colors in the transitions list. The function ensures that the value is within the 
+    range [0, 1] and calculates the segment and local value based on the segment length. If 
+    the segment is equal to the number of segments, the segment is set to the last segment and 
+    the local value is set to 1. The function then calculates the interpolated color by 
+    interpolating between the start and end colors in the transitions list. The function 
+    returns the interpolated color as a tuple of three integers representing the RGB values.
+    
+    :param value: A float between 0 and 1 that determines the position of the color in the 
+                  transition.
+    :type value: float
+    :return: An RGB color value as a tuple of three integers representing the RGB values.
+    :rtype: tuple(int, int, int)
+    """
     transitions = [
         (255, 0, 0),   # Red
         (255, 255, 0), # Yellow
@@ -65,6 +89,16 @@ def get_color_map(normalized_array):
     return colors
 
 def generate_html(sentences, colors):
+    """
+    Generates an HTML content based on the input sentences and their corresponding colors.
+
+    Parameters:
+    sentences (list): A list of sentences to be included in the HTML.
+    colors (list): A list of colors corresponding to each sentence.
+
+    Returns:
+    str: The generated HTML content.
+    """
     html_content = '''
     <html>
     <head>
@@ -138,10 +172,6 @@ def process_text():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     files = request.files.getlist('file')
-    # if not files:
-    #     return jsonify({'error': 'No files uploaded'}), 400
-    # write a catch error here
-
     all_texts = []
     for file in files:
         filename = file.filename
@@ -188,9 +218,6 @@ def upload_file():
     html_output = generate_html(all_sentences, colors)
 
     return jsonify({'html': html_output})
-
-
-
 
 if __name__ == '__main__':
     os.makedirs('uploads', exist_ok=True)
