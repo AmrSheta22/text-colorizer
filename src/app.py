@@ -7,6 +7,8 @@ import re
 from sklearn.manifold import MDS
 from scipy.spatial.distance import pdist, squareform
 from sentence_transformers import SentenceTransformer
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.preprocessing import StandardScaler
 
 app = Flask(__name__, static_folder='../static', static_url_path='')
 
@@ -135,6 +137,64 @@ def generate_html(sentences, colors):
     html_content += '</body></html>'
     return html_content
 
+def get_cluster_labels(embeddings):
+    ss = StandardScaler()
+    scaled_embeds = ss.fit_transform(embeddings)
+    clustering = AgglomerativeClustering(n_clusters=None, distance_threshold=32).fit(scaled_embeds)
+    return clustering.labels_
+
+def average_for_each_cluster(embeddings, labels):
+    clusters = {}
+    for i, j in zip(labels, embeddings):
+        if i not in clusters:
+            clusters[i] = []
+        clusters[i].append(j)
+    for i in clusters:
+        clusters[i] = sum(clusters[i]) / len(clusters[i])
+    clusters = dict(sorted(clusters.items()))
+    return clusters
+
+def index_mapping(lst):
+    index_dict = {}
+    for index, value in enumerate(lst):
+        if value in index_dict:
+            index_dict[value].append(index)
+        else:
+            index_dict[value] = [index]
+    index_dict = dict(sorted(index_dict.items()))
+    return index_dict
+
+def get_one_dimentional_clusters(index_dict, embeddings):
+    one_dimensional_clusters = {}
+    for i, k in index_dict.items():
+        this_cluster = []
+        if len(k) == 1:
+            one_dimensional_clusters[i] = [0.5]
+        else:
+            for j in k:
+                this_cluster.append(embeddings[j])
+            cosine_distance_matrix = compute_cosine_distance_matrix(np.array(this_cluster))
+            one_dimensional_cluster = reduce_to_one_dimension(cosine_distance_matrix)
+            normalized_array = normalize_array(one_dimensional_cluster)
+            one_dimensional_clusters[i] = normalized_array
+    one_dimensional_clusters = dict(sorted(one_dimensional_clusters.items()))
+    return one_dimensional_clusters
+
+def extract_colors(cluster_values, index_dict, cluster_colors):
+    colored_points = {}
+    for cluster, values in cluster_values.items():
+        max_color = cluster_colors[cluster]
+        colored_points[cluster] = [interpolate_color(value, max_color) for value in values]
+    colors_index = {}
+    for k1, k2 in zip(index_dict.values(), colored_points.values()):
+        for i, j in zip(k1, k2):
+            colors_index[i] = tuple(j)
+    colors = list(dict(sorted(colors_index.items())).values())
+    return colors
+
+def interpolate_color(value, max_color):
+    return np.clip(np.array(max_color) - int(value*20), 0, 255)
+
 def extract_text_from_docx(file_path):
     doc = docx.Document(file_path)
     return '\n'.join([para.text for para in doc.paragraphs])
@@ -211,12 +271,17 @@ def upload_file():
     if len(all_sentences) == 1:
         return jsonify({'error ': 'no other text input to comapre to'}), 400
     embeddings = compute_sentence_embeddings(all_sentences)
-    cosine_distance_matrix = compute_cosine_distance_matrix(embeddings)
+    labels = get_cluster_labels(embeddings)
+    clusters = average_for_each_cluster(embeddings, labels)
+    index_dict = index_mapping(labels)
+    cluster_values = get_one_dimentional_clusters(index_dict, embeddings)
+    cluster_embeddings = list(clusters.values())
+    cosine_distance_matrix = compute_cosine_distance_matrix(cluster_embeddings)
     one_dimensional = reduce_to_one_dimension(cosine_distance_matrix)
     normalized_array = normalize_array(one_dimensional)
-    colors = get_color_map(normalized_array)
+    cluster_colors = dict(enumerate(get_color_map(normalized_array)))
+    colors = extract_colors(cluster_values, index_dict, cluster_colors)
     html_output = generate_html(all_sentences, colors)
-
     return jsonify({'html': html_output})
 
 if __name__ == '__main__':
