@@ -1,9 +1,9 @@
-pip install python-docx
-pip install PyPDF2
-pip install numpy
-pip install scikit-learn
-pip install scipy
-pip install torch
-pip install sentence_transformers
-pip install flask
+python-docx
+PyPDF2
+numpy
+scikit-learn
+scipy
+torch
+sentence_transformers
+flask
 
